@@ -1,0 +1,63 @@
+name: CI/CD Pipeline for DevPro Team 2
+
+on:
+  push:
+    branches:
+      - main   # Trigger bij een push naar de 'main' branch
+  pull_request:
+    branches:
+      - main   # Trigger bij een pull request naar de 'main' branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Voer uit op een Ubuntu runner
+    
+    steps:
+      # Stap 1: Checkout de code
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Stap 2: Set up Node.js (of een andere technologie als je die gebruikt)
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'  # Pas dit aan naar de versie die je gebruikt
+
+      # Stap 3: Installeer dependencies
+      - name: Install dependencies
+        run: npm install   # Vervang door de juiste installatie stap voor jouw applicatie
+
+      # Stap 4: Voer tests uit (je kunt hier bijvoorbeeld je unit tests uitvoeren)
+      - name: Run tests
+        run: npm test   # Vervang door jouw testcommando
+
+  deploy:
+    runs-on: ubuntu-latest  # Voer uit op een Ubuntu runner
+    needs: build  # Deze job draait pas na de succesvolle 'build' job
+
+    steps:
+      # Stap 1: Checkout de code
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Stap 2: SSH verbinding maken met de Oracle-instance
+      - name: Deploy to Oracle Instance via SSH
+        env:
+          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}  # SSH private key is opgeslagen als secret
+        run: |
+          # Zet de privé-sleutelbestand op
+          echo "$PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem  # Zorg ervoor dat de sleutel de juiste machtigingen heeft
+
+          # Maak SSH verbinding met de server en voer de deploy commando's uit
+          ssh -o StrictHostKeyChecking=no -i private_key.pem ubuntu@141.148.229.5 << 'EOF'
+            cd /path/to/your/app   # Ga naar je applicatiemap op de server
+            git pull origin main    # Haal de laatste code op uit de repository
+            npm install             # Installeer de dependencies (of gebruik andere build commando's afhankelijk van je technologie)
+            npm run build           # Bouw de applicatie (of gebruik een ander commando afhankelijk van je technologie)
+            pm2 restart app         # Herstart de applicatie met pm2 of de geschikte tool
+          EOF
+
+      # Stap 3: Maak de private sleutel weer veilig
+      - name: Clean up
+        run: rm -f private_key.pem
